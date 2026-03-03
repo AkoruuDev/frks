@@ -6,9 +6,9 @@ import { BOOK_ARSENAL, INITIAL_TASKS } from './constants';
 import { Plus, Minus, LogOut, Trash2, ChevronLeft, ChevronRight, Play, Pause, RotateCcw, DollarSign, ShieldAlert, Target, Lock, User, Activity } from 'lucide-react';
 
 // --- HELPERS ---
-const formatCurrency = (val: number) => {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-};
+import formatCurrency from './utils/formatCurrency';
+import useAppPersistence from './hooks/useAppPersistence';
+import useFocusTimer from './hooks/useFocusTimer';
 
 export default function App() {
   // --- STATES ---
@@ -40,60 +40,22 @@ export default function App() {
   const [pageInput, setPageInput] = useState('');
 
   // Timer
-  const [timer, setTimer] = useState({ timeLeft: 25 * 60, isRunning: false, mode: 'FOCUS' });
-  const timerRef = useRef<number | null>(null);
+  const { timer, setTimer } = useFocusTimer(() => {
+    setIntellectual(prev => ({
+      ...prev,
+      totalFocusMinutes: prev.totalFocusMinutes + 25
+    }));
+  });
 
   // --- PERSISTENCE ---
-  useEffect(() => {
-    const loadData = () => {
-      const saved = localStorage.getItem('freak_data');
-      if (saved) {
-        const data = JSON.parse(saved);
-        setProfile(data.profile);
-        setFinances(data.finances);
-        setFinancialSetup(data.financialSetup);
-        setIntellectual(data.intellectual);
-        setTasks(data.tasks);
-        setUserMode(data.userMode);
-      }
-      setLoading(false);
-    };
-
-    // Splash Sequence
-    setTimeout(() => setSplashPhase(2), 2000);
-    setTimeout(() => {
-      setSplashPhase(3);
-      loadData();
-    }, 5000);
-  }, []);
-
-  useEffect(() => {
-    if (!loading) {
-      const stateToSave = { profile, finances, financialSetup, intellectual, tasks, userMode };
-      localStorage.setItem('freak_data', JSON.stringify(stateToSave));
-    }
-  }, [profile, finances, financialSetup, intellectual, tasks, userMode, loading]);
-
-  // --- TIMER LOGIC ---
-  useEffect(() => {
-    if (timer.isRunning && timer.timeLeft > 0) {
-      timerRef.current = window.setInterval(() => {
-        setTimer((prev) => ({ ...prev, timeLeft: prev.timeLeft - 1 }));
-      }, 1000);
-    } else if (timer.timeLeft === 0) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      setTimer((prev) => ({ ...prev, isRunning: false }));
-      if (timer.mode === 'FOCUS') {
-        setIntellectual(prev => ({ ...prev, totalFocusMinutes: prev.totalFocusMinutes + 25 }));
-        alert("MISSÃO CUMPRIDA. +25min de XP.");
-        setTimer({ timeLeft: 5 * 60, isRunning: false, mode: 'BREAK' });
-      } else {
-        alert("DESCANSO FINALIZADO. VOLTE PARA A GUERRA.");
-        setTimer({ timeLeft: 25 * 60, isRunning: false, mode: 'FOCUS' });
-      }
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [timer.isRunning, timer.timeLeft, timer.mode]);
+  useAppPersistence(loading, { profile, finances, financialSetup, intellectual, tasks, userMode }, (state) => {
+    setProfile(state.profile);
+    setFinances(state.finances);
+    setFinancialSetup(state.financialSetup);
+    setIntellectual(state.intellectual);
+    setTasks(state.tasks);
+    setUserMode(state.userMode);
+  });  
 
   // --- NAVIGATION ---
   const changeScreen = (newScreen: string) => {
